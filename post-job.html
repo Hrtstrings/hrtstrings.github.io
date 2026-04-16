@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post a Job | Workly</title>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
         :root { --pi-purple: #632d95; --pi-gold: #ffa500; }
         body { font-family: sans-serif; margin: 0; background: #f4f4f9; padding: 20px; }
@@ -11,36 +12,81 @@
         h2 { color: var(--pi-purple); text-align: center; }
         label { display: block; margin-top: 15px; font-weight: bold; color: #555; }
         input, textarea, select { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        .btn-submit { background: var(--pi-purple); color: white; border: none; width: 100%; padding: 15px; margin-top: 25px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
-        .back-link { display: block; text-align: center; margin-top: 15px; color: #888; text-decoration: none; }
+        .fee-box { background: #fff9e6; border: 1px dashed var(--pi-gold); padding: 15px; margin-top: 20px; border-radius: 8px; }
+        .fee-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .total { font-weight: bold; font-size: 1.2rem; color: var(--pi-purple); border-top: 1px solid #ddd; pt: 10px; }
+        .btn-pay { width: 100%; background: var(--pi-purple); color: white; padding: 15px; border: none; border-radius: 30px; font-size: 1.1rem; font-weight: bold; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>Post a New Job</h2>
-    <form id="jobForm">
-        <label>Job Title</label>
-        <input type="text" placeholder="e.g. Design a Logo for my Pi Shop" required>
+    
+    <label>Job Title</label>
+    <input type="text" id="jobTitle" placeholder="e.g. Design a Logo">
 
-        <label>Category</label>
-        <select>
-            <option>Development</option>
-            <option>Writing</option>
-            <option>Design</option>
-            <option>General Tasks</option>
-        </select>
+    <label>Category</label>
+    <select id="category">
+        <option value="design">Graphic Design</option>
+        <option value="dev">Development</option>
+        <option value="writing">Writing</option>
+    </select>
 
-        <label>Description</label>
-        <textarea rows="5" placeholder="Describe the task in detail..."></textarea>
+    <label>Budget (Pi)</label>
+    <input type="number" id="budget" value="100" oninput="calculateFees()">
 
-        <label>Budget (Pi)</label>
-        <input type="number" placeholder="0.00" step="0.01" required>
+    <div class="fee-box">
+        <div class="fee-row">
+            <span>Job Budget:</span>
+            <span id="displayBudget">100.00 π</span>
+        </div>
+        <div class="fee-row">
+            <span>Listing Fee (5%):</span>
+            <span id="displayFee">5.00 π</span>
+        </div>
+        <div class="fee-row total">
+            <span>Total to Pay:</span>
+            <span id="displayTotal">105.00 π</span>
+        </div>
+    </div>
 
-        <button type="submit" class="btn-submit">Post Job Listing</button>
-    </form>
-    <a href="index.html" class="back-link">← Back to Home</a>
+    <button class="btn-pay" onclick="payAndPost()">Pay & Post Job</button>
+    <p style="text-align: center;"><a href="index.html" style="color: #888; text-decoration: none;">← Cancel</a></p>
 </div>
 
+<script>
+    const Pi = window.Pi;
+    Pi.init({ version: "2.0", sandbox: true });
+
+    function calculateFees() {
+        const budget = parseFloat(document.getElementById('budget').value) || 0;
+        const fee = budget * 0.05;
+        const total = budget + fee;
+
+        document.getElementById('displayBudget').innerText = budget.toFixed(2) + " π";
+        document.getElementById('displayFee').innerText = fee.toFixed(2) + " π";
+        document.getElementById('displayTotal').innerText = total.toFixed(2) + " π";
+    }
+
+    async function payAndPost() {
+        const totalAmount = parseFloat(document.getElementById('displayTotal').innerText);
+        
+        try {
+            const payment = await Pi.createPayment({
+                amount: totalAmount,
+                memo: "Job Listing Fee + Escrow Deposit",
+                metadata: { jobTitle: document.getElementById('jobTitle').value }
+            }, {
+                onReadyForServerApproval: (id) => console.log("Payment ID:", id),
+                onReadyForServerCompletion: (id, txid) => alert("Job Posted Successfully!"),
+                onCancel: (id) => alert("Payment Cancelled"),
+                onError: (error, payment) => console.error(error)
+            });
+        } catch (err) {
+            alert("Please use the Pi Browser to complete this transaction.");
+        }
+    }
+</script>
 </body>
 </html>
