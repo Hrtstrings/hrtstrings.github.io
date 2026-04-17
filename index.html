@@ -4,45 +4,76 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Workly | Pi Freelance Marketplace</title>
-    <!-- FIX 1: Removed space in URL, removed defer to ensure Pi loads before onload -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
         :root { --pi-purple: #632d95; --pi-gold: #ffa500; }
         body { font-family: sans-serif; margin: 0; background: #f4f4f9; text-align: center; }
         header { background: var(--pi-purple); color: white; padding: 2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .container { max-width: 600px; margin: 50px auto; padding: 20px; background: white; border-radius: 15px; }
-        .btn { display: inline-block; padding: 15px 30px; background: var(--pi-purple); color: white; text-decoration: none; border-radius: 30px; font-weight: bold; margin-top: 20px; }
+        .container { max-width: 600px; margin: 50px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .btn { display: inline-block; padding: 15px 30px; background: var(--pi-purple); color: white; text-decoration: none; border-radius: 30px; font-weight: bold; margin-top: 20px; border: none; cursor: pointer; }
+        .btn:disabled { background: #ccc; }
+        #user-greeting { margin-top: 15px; font-weight: bold; color: var(--pi-purple); }
     </style>
 </head>
 <body>
     <header><h1>WORKLY</h1></header>
     <div class="container">
         <h2>Hire Experts with Pi</h2>
-        <p>Post a job and pay securely using the Pi Network.</p>
-        <a href="post-job.html" class="btn">Post a New Job</a>
+        <p id="status-text">Log in to start hiring or finding work.</p>
+        <div id="user-greeting"></div>
+        
+        <button id="auth-btn" class="btn">Login with Pi</button>
+        
+        <a href="post-job.html" id="post-job-link" class="btn" style="display: none;">Post a New Job</a>
     </div>
 
     <script>
-        // FIX 2: Proper Pi SDK initialization with correct version
+        const Pi = window.Pi;
+
         window.onload = function() {
-            if (typeof window.Pi !== 'undefined') {
-                try {
-                    window.Pi.init({ 
-                        version: "2.0.0",  // FIX 3: Correct version format
-                        sandbox: true,     // NOTE: Change to false for production
-                        onIncompletePaymentFound: function(payment) {
-                            console.log("Incomplete payment found:", payment);
-                            // Handle incomplete payment (e.g., allow user to complete it)
-                        }
-                    });
-                    console.log("Pi SDK initialized successfully");
-                } catch (err) {
-                    console.error("Pi SDK init failed:", err);
-                }
-            } else {
-                console.warn("Pi SDK not loaded - ensure you're in Pi Browser");
+            // 1. Initialize SDK
+            try {
+                Pi.init({ version: "2.0", sandbox: true });
+                console.log("Pi SDK Initialized");
+            } catch (err) {
+                console.error("Initialization failed", err);
             }
         };
+
+        // 2. Authentication Function
+        async function login() {
+            const btn = document.getElementById('auth-btn');
+            const status = document.getElementById('status-text');
+            const greeting = document.getElementById('user-greeting');
+            const postLink = document.getElementById('post-job-link');
+
+            try {
+                btn.innerText = "Authenticating...";
+                btn.disabled = true;
+
+                const scopes = ['username', 'payments'];
+                const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
+
+                // SUCCESS: User is logged in
+                status.innerText = "Welcome to the Workly Marketplace!";
+                greeting.innerText = "Logged in as: " + auth.user.username;
+                btn.style.display = "none"; // Hide login button
+                postLink.style.display = "inline-block"; // Show the job button
+
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Auth failed. Are you in the Pi Browser?";
+                btn.disabled = false;
+                btn.innerText = "Login with Pi";
+            }
+        }
+
+        function onIncompletePaymentFound(payment) {
+            console.log("Incomplete payment found:", payment);
+        }
+
+        // Attach event listener
+        document.getElementById('auth-btn').onclick = login;
     </script>
 </body>
 </html>
