@@ -6,74 +6,140 @@
     <title>Workly | Pi Freelance Marketplace</title>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
-        :root { --pi-purple: #632d95; --pi-gold: #ffa500; }
-        body { font-family: sans-serif; margin: 0; background: #f4f4f9; text-align: center; }
-        header { background: var(--pi-purple); color: white; padding: 2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .container { max-width: 600px; margin: 50px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        .btn { display: inline-block; padding: 15px 30px; background: var(--pi-purple); color: white; text-decoration: none; border-radius: 30px; font-weight: bold; margin-top: 20px; border: none; cursor: pointer; }
-        .btn:disabled { background: #ccc; }
-        #user-greeting { margin-top: 15px; font-weight: bold; color: var(--pi-purple); }
+        :root { 
+            --pi-purple: #632d95; 
+            --pi-gold: #ffa500; 
+        }
+        * { 
+            box-sizing: border-box; 
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            background: #f4f4f9; 
+            text-align: center; 
+            color: #333;
+        }
+        header { 
+            background: var(--pi-purple); 
+            color: white; 
+            padding: 2rem; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+        }
+        header h1 { 
+            margin: 0; 
+            font-size: 2.5rem; 
+            letter-spacing: 2px;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 50px auto; 
+            padding: 30px; 
+            background: white; 
+            border-radius: 15px; 
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        .container h2 { 
+            color: var(--pi-purple); 
+            margin-bottom: 10px;
+        }
+        .container p { 
+            color: #666; 
+            margin-bottom: 30px;
+        }
+        .btn { 
+            display: inline-block; 
+            padding: 15px 40px; 
+            background: var(--pi-purple); 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 30px; 
+            font-weight: bold; 
+            font-size: 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 5px 15px rgba(99, 45, 149, 0.3);
+        }
+        .features { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 20px; 
+            margin-top: 40px; 
+            text-align: left;
+        }
+        .feature { 
+            padding: 20px; 
+            background: #fafafa; 
+            border-radius: 10px; 
+            border-left: 4px solid var(--pi-gold);
+        }
+        .feature h3 { 
+            color: var(--pi-purple); 
+            margin-top: 0;
+        }
+        footer { 
+            margin-top: 50px; 
+            padding: 20px; 
+            color: #888; 
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
-    <header><h1>WORKLY</h1></header>
+    <header>
+        <h1>WORKLY</h1>
+        <p>Powered by Pi Network</p>
+    </header>
+    
     <div class="container">
         <h2>Hire Experts with Pi</h2>
-        <p id="status-text">Log in to start hiring or finding work.</p>
-        <div id="user-greeting"></div>
+        <p>Post a job and pay securely using the Pi Network. Connect with talented freelancers worldwide.</p>
+        <a href="post-job.html" class="btn">Post a New Job</a>
         
-        <button id="auth-btn" class="btn">Login with Pi</button>
-        
-        <a href="post-job.html" id="post-job-link" class="btn" style="display: none;">Post a New Job</a>
+        <div class="features">
+            <div class="feature">
+                <h3>🔒 Secure Payments</h3>
+                <p>Pay with Pi cryptocurrency. Safe, fast, and decentralized.</p>
+            </div>
+            <div class="feature">
+                <h3>🌍 Global Talent</h3>
+                <p>Access skilled professionals from around the world.</p>
+            </div>
+            <div class="feature">
+                <h3>⚡ Instant Matching</h3>
+                <p>Get matched with the right freelancer in minutes.</p>
+            </div>
+        </div>
     </div>
 
-    <script>
-        const Pi = window.Pi;
+    <footer>
+        <p>Workly &copy; 2024 | Built on Pi Network</p>
+    </footer>
 
+    <script>
+        // Pi SDK Initialization
         window.onload = function() {
-            // 1. Initialize SDK
-            try {
-                Pi.init({ version: "2.0", sandbox: true });
-                console.log("Pi SDK Initialized");
-            } catch (err) {
-                console.error("Initialization failed", err);
+            if (typeof window.Pi !== 'undefined') {
+                try {
+                    window.Pi.init({ 
+                        version: "2.0.0",
+                        sandbox: true,
+                        onIncompletePaymentFound: function(payment) {
+                            console.log("Incomplete payment found:", payment);
+                        }
+                    });
+                    console.log("Pi SDK initialized successfully");
+                } catch (err) {
+                    console.error("Pi SDK initialization failed:", err);
+                }
+            } else {
+                console.warn("Pi SDK not available - please use Pi Browser");
             }
         };
-
-        // 2. Authentication Function
-        async function login() {
-            const btn = document.getElementById('auth-btn');
-            const status = document.getElementById('status-text');
-            const greeting = document.getElementById('user-greeting');
-            const postLink = document.getElementById('post-job-link');
-
-            try {
-                btn.innerText = "Authenticating...";
-                btn.disabled = true;
-
-                const scopes = ['username', 'payments'];
-                const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
-
-                // SUCCESS: User is logged in
-                status.innerText = "Welcome to the Workly Marketplace!";
-                greeting.innerText = "Logged in as: " + auth.user.username;
-                btn.style.display = "none"; // Hide login button
-                postLink.style.display = "inline-block"; // Show the job button
-
-            } catch (err) {
-                console.error(err);
-                status.innerText = "Auth failed. Are you in the Pi Browser?";
-                btn.disabled = false;
-                btn.innerText = "Login with Pi";
-            }
-        }
-
-        function onIncompletePaymentFound(payment) {
-            console.log("Incomplete payment found:", payment);
-        }
-
-        // Attach event listener
-        document.getElementById('auth-btn').onclick = login;
     </script>
 </body>
 </html>
