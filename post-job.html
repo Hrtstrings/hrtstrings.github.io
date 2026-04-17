@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post a Job | Workly</title>
-    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
         :root { --pi-purple: #632d95; --pi-gold: #ffa500; }
         * { box-sizing: border-box; }
@@ -26,6 +25,12 @@
         h2 { 
             color: var(--pi-purple); 
             text-align: center; 
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
             margin-bottom: 25px;
         }
         label { 
@@ -99,18 +104,104 @@
             margin-top: 5px; 
             display: none; 
         }
-        .mode-toggle {
-            background: #e3f2fd;
-            border: 1px solid #2196f3;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+        /* Payment Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
             text-align: center;
         }
-        .mode-toggle label {
-            display: inline;
-            margin: 0;
-            font-weight: normal;
+        .modal h3 {
+            color: var(--pi-purple);
+            margin-bottom: 20px;
+        }
+        .pi-logo {
+            width: 80px;
+            height: 80px;
+            background: var(--pi-purple);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .payment-details {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .payment-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .payment-total {
+            font-weight: bold;
+            color: var(--pi-purple);
+            font-size: 1.2rem;
+            border-top: 2px solid #ddd;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn-confirm {
+            flex: 1;
+            background: var(--pi-purple);
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-cancel {
+            flex: 1;
+            background: #f0f0f0;
+            color: #666;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .success-check {
+            color: #4caf50;
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--pi-purple);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -118,14 +209,9 @@
 
 <div class="container">
     <h2>Post a New Job</h2>
+    <p class="subtitle">Demo Mode - No real Pi transactions</p>
     
-    <!-- Mock Mode Toggle -->
-    <div class="mode-toggle">
-        <input type="checkbox" id="mockMode" checked>
-        <label for="mockMode">Mock Mode (No real Pi transferred)</label>
-    </div>
-    
-    <form id="jobForm" onsubmit="event.preventDefault(); payAndPost();">
+    <form id="jobForm" onsubmit="event.preventDefault(); showPaymentModal();">
         <label for="jobTitle">Job Title *</label>
         <input type="text" id="jobTitle" placeholder="e.g. Design a Logo" required>
         <span class="error" id="titleError">Please enter a job title</span>
@@ -166,40 +252,15 @@
     <a href="index.html" class="back-link">&larr; Back to Home</a>
 </div>
 
+<!-- Payment Modal -->
+<div id="paymentModal" class="modal-overlay">
+    <div class="modal" id="modalContent">
+        <!-- Content injected by JS -->
+    </div>
+</div>
+
 <script>
-    // Initialize Pi SDK
-    let Pi = null;
-    let isPiBrowser = false;
-
-    function initializePiSDK() {
-        if (typeof window.Pi !== 'undefined') {
-            Pi = window.Pi;
-            isPiBrowser = true;
-            
-            try {
-                Pi.init({ 
-                    version: "2.0",
-                    sandbox: true
-                });
-                console.log("✅ Pi SDK initialized");
-                return true;
-            } catch (err) {
-                console.error("❌ Pi SDK init failed:", err);
-                return false;
-            }
-        } else {
-            console.warn("⚠️ Pi SDK not available");
-            return false;
-        }
-    }
-
-    initializePiSDK();
-
-    function sanitizeInput(str) {
-        if (!str) return '';
-        return str.replace(/[<>\"']/g, '').trim().substring(0, 200);
-    }
-
+    // Calculate fees
     function calculateFees() {
         const budget = parseFloat(document.getElementById('budget').value) || 0;
         const fee = budget * 0.05;
@@ -208,107 +269,114 @@
         document.getElementById('displayBudget').textContent = budget.toFixed(2) + " π";
         document.getElementById('displayFee').textContent = fee.toFixed(2) + " π";
         document.getElementById('displayTotal').textContent = total.toFixed(2) + " π";
+        
+        return { budget, fee, total };
     }
 
-    async function payAndPost() {
-        const titleInput = document.getElementById('jobTitle');
-        const budgetInput = document.getElementById('budget');
-        const categoryInput = document.getElementById('category');
-        const descInput = document.getElementById('description');
-        const payBtn = document.getElementById('payBtn');
-        const mockMode = document.getElementById('mockMode').checked;
-        
-        // Validation
-        const title = titleInput.value.trim();
+    // Show payment confirmation modal
+    function showPaymentModal() {
+        const title = document.getElementById('jobTitle').value.trim();
         if (!title) {
             document.getElementById('titleError').style.display = 'block';
-            titleInput.focus();
             return;
         }
         document.getElementById('titleError').style.display = 'none';
 
-        const budgetValue = parseFloat(budgetInput.value) || 0;
-        if (budgetValue <= 0) {
-            alert("Please enter a valid budget");
-            return;
-        }
-
-        const totalAmount = budgetValue + (budgetValue * 0.05);
+        const fees = calculateFees();
+        const modal = document.getElementById('paymentModal');
+        const content = document.getElementById('modalContent');
         
-        // MOCK MODE: Skip real payment
-        if (mockMode) {
-            console.log("🎭 MOCK PAYMENT:");
-            console.log("  Amount:", totalAmount);
-            console.log("  Title:", title);
-            console.log("  Category:", categoryInput.value);
+        content.innerHTML = `
+            <div class="pi-logo">π</div>
+            <h3>Confirm Payment</h3>
+            <p style="color: #666; margin-bottom: 20px;">Workly Job Listing</p>
             
-            payBtn.disabled = true;
-            payBtn.textContent = "Processing...";
+            <div class="payment-details">
+                <div class="payment-row">
+                    <span>Job:</span>
+                    <span>${escapeHtml(title)}</span>
+                </div>
+                <div class="payment-row">
+                    <span>Budget:</span>
+                    <span>${fees.budget.toFixed(2)} π</span>
+                </div>
+                <div class="payment-row">
+                    <span>Listing Fee:</span>
+                    <span>${fees.fee.toFixed(2)} π</span>
+                </div>
+                <div class="payment-row payment-total">
+                    <span>Total:</span>
+                    <span>${fees.total.toFixed(2)} π</span>
+                </div>
+            </div>
             
-            setTimeout(() => {
-                alert("🎉 MOCK PAYMENT SUCCESSFUL!\n\nIn production, this would:\n• Deduct " + totalAmount.toFixed(2) + " Pi from your wallet\n• Post your job to the marketplace\n• Send confirmation email");
-                
-                document.getElementById('jobForm').reset();
-                calculateFees();
-                payBtn.disabled = false;
-                payBtn.textContent = "Pay & Post Job";
-            }, 1500);
+            <p style="color: #999; font-size: 0.85rem; margin-top: 15px;">
+                Demo Mode - No real Pi will be transferred
+            </p>
             
-            return;
-        }
-
-        // REAL PAYMENT (Requires backend)
-        if (!isPiBrowser || !Pi) {
-            alert("Please open this app in Pi Browser to make real payments.");
-            return;
-        }
-
-        payBtn.disabled = true;
-        payBtn.textContent = "Processing...";
-
-        try {
-            const scopes = ['payments'];
-            
-            Pi.authenticate(scopes, function onIncompletePaymentFound(payment) {
-                console.log("Incomplete payment:", payment);
-            }).then(function(auth) {
-                console.log("Authenticated:", auth.user.username);
-                
-                return Pi.createPayment({
-                    amount: totalAmount,
-                    memo: "Workly: " + sanitizeInput(title),
-                    metadata: { 
-                        jobTitle: sanitizeInput(title),
-                        category: categoryInput.value,
-                        budget: budgetValue
-                    }
-                }, {
-                    onReadyForServerApproval: function(paymentId) {
-                        console.log("⏳ Payment needs server approval:", paymentId);
-                        alert("Payment created but needs backend approval.\n\nPlease enable mock mode for testing without a server.");
-                    },
-                    onReadyForServerCompletion: function(paymentId, txid) {
-                        console.log("✅ Payment complete:", paymentId, txid);
-                    },
-                    onCancel: function(paymentId) {
-                        console.log("❌ Cancelled:", paymentId);
-                    },
-                    onError: function(error, payment) {
-                        console.error("❌ Error:", error);
-                    }
-                });
-            }).catch(function(error) {
-                console.error("Auth error:", error);
-            });
-            
-        } catch (err) {
-            console.error("Payment error:", err);
-        } finally {
-            payBtn.disabled = false;
-            payBtn.textContent = "Pay & Post Job";
-        }
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-confirm" onclick="processPayment()">Confirm</button>
+            </div>
+        `;
+        
+        modal.style.display = 'flex';
     }
 
+    // Process mock payment
+    function processPayment() {
+        const content = document.getElementById('modalContent');
+        const fees = calculateFees();
+        
+        // Show processing state
+        content.innerHTML = `
+            <div class="spinner"></div>
+            <h3>Processing Payment...</h3>
+            <p style="color: #666;">Please wait while we process your ${fees.total.toFixed(2)} π payment</p>
+        `;
+        
+        // Simulate processing delay
+        setTimeout(() => {
+            // Show success
+            content.innerHTML = `
+                <div class="success-check">✓</div>
+                <h3>Payment Successful!</h3>
+                <p style="color: #666; margin-bottom: 20px;">
+                    Your job has been posted successfully.
+                </p>
+                <div class="payment-details" style="text-align: center;">
+                    <p style="margin: 0; color: #666;">Amount Paid</p>
+                    <p style="margin: 5px 0; font-size: 1.5rem; color: var(--pi-purple); font-weight: bold;">
+                        ${fees.total.toFixed(2)} π
+                    </p>
+                </div>
+                <button class="btn-confirm" style="margin-top: 20px; width: 100%;" onclick="finishPayment()">
+                    Done
+                </button>
+            `;
+        }, 2000);
+    }
+
+    // Close modal and reset form
+    function finishPayment() {
+        closeModal();
+        document.getElementById('jobForm').reset();
+        calculateFees();
+    }
+
+    // Close modal
+    function closeModal() {
+        document.getElementById('paymentModal').style.display = 'none';
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Initialize
     calculateFees();
 </script>
 
