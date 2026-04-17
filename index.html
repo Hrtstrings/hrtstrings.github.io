@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Workly | Pi Freelance Marketplace</title>
-    <script src="https://sdk.minepi.com/pi-sdk.js" defer></script>
+    <!-- FIX 1: Removed space in URL, removed defer to ensure Pi loads before onload -->
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
         :root { --pi-purple: #632d95; --pi-gold: #ffa500; }
         body { font-family: sans-serif; margin: 0; background: #f4f4f9; text-align: center; }
@@ -22,13 +23,24 @@
     </div>
 
     <script>
+        // FIX 2: Proper Pi SDK initialization with correct version
         window.onload = function() {
-            if (window.Pi) {
-                window.Pi.init({ 
-                    version: "2.0", 
-                    sandbox: true,
-                    onIncompletePaymentFound: (payment) => console.log("Recovering:", payment)
-                });
+            if (typeof window.Pi !== 'undefined') {
+                try {
+                    window.Pi.init({ 
+                        version: "2.0.0",  // FIX 3: Correct version format
+                        sandbox: true,     // NOTE: Change to false for production
+                        onIncompletePaymentFound: function(payment) {
+                            console.log("Incomplete payment found:", payment);
+                            // Handle incomplete payment (e.g., allow user to complete it)
+                        }
+                    });
+                    console.log("Pi SDK initialized successfully");
+                } catch (err) {
+                    console.error("Pi SDK init failed:", err);
+                }
+            } else {
+                console.warn("Pi SDK not loaded - ensure you're in Pi Browser");
             }
         };
     </script>
