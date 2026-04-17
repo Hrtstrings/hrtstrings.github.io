@@ -6,72 +6,254 @@
     <title>Post a Job | Workly</title>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
-        :root { --pi-purple: #632d95; }
-        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; text-align: center; }
-        .form-card { background: white; padding: 30px; border-radius: 15px; max-width: 450px; margin: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
-        .pay-btn { background: var(--pi-purple); color: white; border: none; padding: 15px; width: 100%; border-radius: 25px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-        #status { margin-top: 15px; font-size: 0.9rem; color: #666; }
+        :root { --pi-purple: #632d95; --pi-gold: #ffa500; }
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            background: #f4f4f9; 
+            padding: 20px;
+            color: #333;
+        }
+        .container { 
+            max-width: 500px; 
+            margin: auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 15px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        h2 { 
+            color: var(--pi-purple); 
+            text-align: center; 
+            margin-bottom: 25px;
+        }
+        label { 
+            display: block; 
+            margin-top: 20px; 
+            font-weight: bold; 
+            color: #555; 
+        }
+        input, textarea, select { 
+            width: 100%; 
+            padding: 12px; 
+            margin-top: 5px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            font-size: 1rem;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--pi-purple);
+        }
+        .fee-box { 
+            background: #fff9e6; 
+            border: 1px dashed var(--pi-gold); 
+            padding: 15px; 
+            margin-top: 25px; 
+            border-radius: 8px; 
+        }
+        .fee-row { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 8px; 
+        }
+        .total { 
+            font-weight: bold; 
+            font-size: 1.2rem; 
+            color: var(--pi-purple); 
+            border-top: 1px solid #ddd; 
+            padding-top: 10px; 
+            margin-top: 10px;
+        }
+        .btn-pay { 
+            width: 100%; 
+            background: var(--pi-purple); 
+            color: white; 
+            padding: 15px; 
+            border: none; 
+            border-radius: 30px; 
+            font-size: 1.1rem; 
+            font-weight: bold; 
+            margin-top: 25px; 
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-pay:hover { 
+            background: #4a1f7a; 
+        }
+        .btn-pay:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .back-link { 
+            display: block; 
+            text-align: center; 
+            margin-top: 20px; 
+            color: #888; 
+            text-decoration: none; 
+        }
+        .error { 
+            color: #d32f2f; 
+            font-size: 0.9rem; 
+            margin-top: 5px; 
+            display: none; 
+        }
     </style>
 </head>
 <body>
-    <h1>Workly</h1>
-    <div class="form-card">
-        <h3>Post a New Job</h3>
-        <input type="text" id="jobTitle" placeholder="Job Title (e.g., UI Design)">
-        <textarea id="jobDesc" placeholder="Describe the requirements..."></textarea>
-        <input type="number" id="jobBudget" placeholder="Amount in Pi (e.g., 1.5)">
-        
-        <button class="pay-btn" onclick="payAndPost()">Pay & Post Job</button>
-        <div id="status">Ready to post.</div>
-    </div>
 
-    <script>
-        const Pi = window.Pi;
-        Pi.init({ version: "2.0", sandbox: true });
+<div class="container">
+    <h2>Post a New Job</h2>
+    
+    <form id="jobForm" onsubmit="event.preventDefault(); payAndPost();">
+        <label for="jobTitle">Job Title *</label>
+        <input type="text" id="jobTitle" placeholder="e.g. Design a Logo" required>
+        <span class="error" id="titleError">Please enter a job title</span>
 
-        // Fix 2: Sanitize input
-        function sanitize(str) {
-            return str.replace(/[<>"']/g, "").substring(0, 100);
-        }
+        <label for="category">Category</label>
+        <select id="category">
+            <option value="design">Graphic Design</option>
+            <option value="dev">Development</option>
+            <option value="writing">Writing & Content</option>
+            <option value="marketing">Marketing</option>
+            <option value="other">Other</option>
+        </select>
 
-        async function payAndPost() {
-            const title = document.getElementById('jobTitle').value.trim();
-            const budget = document.getElementById('jobBudget').value;
-            const status = document.getElementById('status');
+        <label for="budget">Budget (Pi) *</label>
+        <input type="number" id="budget" value="100" min="1" max="10000" step="0.01" onchange="calculateFees()" required>
 
-            // Fix 4: Validation
-            if (!title || !budget) {
-                alert("Please enter a title and budget.");
-                return;
-            }
+        <label for="description">Job Description</label>
+        <textarea id="description" rows="4" placeholder="Describe the job requirements..."></textarea>
 
-            status.innerText = "Initiating Pi Wallet...";
+        <div class="fee-box">
+            <div class="fee-row">
+                <span>Job Budget:</span>
+                <span id="displayBudget">100.00 π</span>
+            </div>
+            <div class="fee-row">
+                <span>Listing Fee (5%):</span>
+                <span id="displayFee">5.00 π</span>
+            </div>
+            <div class="fee-row total">
+                <span>Total to Pay:</span>
+                <span id="displayTotal">105.00 π</span>
+            </div>
+        </div>
 
+        <button type="submit" class="btn-pay" id="payBtn">Pay & Post Job</button>
+    </form>
+    
+    <a href="index.html" class="back-link">&larr; Back to Home</a>
+</div>
+
+<script>
+    // Pi SDK Initialization
+    window.onload = function() {
+        if (typeof window.Pi !== 'undefined') {
             try {
-                const payment = await Pi.createPayment({
-                    amount: parseFloat(budget),
-                    memo: "Job Post: " + sanitize(title),
-                    metadata: { jobTitle: sanitize(title) },
-                }, {
-                    onReadyForServerApproval: function(paymentId) {
-                        status.innerText = "Payment created. ID: " + paymentId;
-                        console.log("Submit this ID to your backend:", paymentId);
-                        // For Testnet, you can often proceed, but Mainnet requires server verification here.
-                    },
-                    onReadyForServerCompletion: function(paymentId, txid) {
-                        status.innerText = "Payment Successful! TXID: " + txid;
-                        alert("Job Posted Successfully!");
-                        window.location.href = "index.html"; 
-                    },
-                    onCancel: function(paymentId) { status.innerText = "Payment cancelled."; },
-                    onError: function(error, payment) { status.innerText = "Error: " + error.message; }
+                window.Pi.init({ 
+                    version: "2.0.0",
+                    sandbox: true,
+                    onIncompletePaymentFound: function(payment) {
+                        console.log("Incomplete payment found:", payment);
+                        alert("You have an incomplete payment. Please complete it first.");
+                    }
                 });
+                console.log("Pi SDK initialized");
             } catch (err) {
-                console.error(err);
-                status.innerText = "Failed to open wallet.";
+                console.error("Pi SDK init failed:", err);
             }
+        } else {
+            console.warn("Pi SDK not loaded");
         }
-    </script>
+        calculateFees();
+    };
+
+    function sanitizeInput(str) {
+        if (!str) return '';
+        return str.replace(/[<>\"']/g, '').trim().substring(0, 200);
+    }
+
+    function calculateFees() {
+        const budget = parseFloat(document.getElementById('budget').value) || 0;
+        const fee = budget * 0.05;
+        const total = budget + fee;
+
+        document.getElementById('displayBudget').textContent = budget.toFixed(2) + " π";
+        document.getElementById('displayFee').textContent = fee.toFixed(2) + " π";
+        document.getElementById('displayTotal').textContent = total.toFixed(2) + " π";
+    }
+
+    async function payAndPost() {
+        const titleInput = document.getElementById('jobTitle');
+        const budgetInput = document.getElementById('budget');
+        const categoryInput = document.getElementById('category');
+        const descInput = document.getElementById('description');
+        const payBtn = document.getElementById('payBtn');
+        
+        // Validation
+        const title = titleInput.value.trim();
+        if (!title) {
+            document.getElementById('titleError').style.display = 'block';
+            titleInput.focus();
+            return;
+        }
+        document.getElementById('titleError').style.display = 'none';
+
+        const budgetValue = parseFloat(budgetInput.value) || 0;
+        if (budgetValue <= 0) {
+            alert("Please enter a valid budget");
+            return;
+        }
+
+        const totalAmount = budgetValue + (budgetValue * 0.05);
+        
+        // Disable button to prevent double submission
+        payBtn.disabled = true;
+        payBtn.textContent = "Processing...";
+
+        try {
+            const payment = await window.Pi.createPayment({
+                amount: totalAmount,
+                memo: "Workly Job Listing: " + sanitizeInput(title),
+                metadata: { 
+                    jobTitle: sanitizeInput(title),
+                    category: categoryInput.value,
+                    description: sanitizeInput(descInput.value),
+                    budget: budgetValue,
+                    fee: budgetValue * 0.05
+                }
+            }, {
+                onReadyForServerApproval: function(paymentId) {
+                    console.log("Payment ready for approval:", paymentId);
+                    // TODO: Send paymentId to your backend for approval
+                },
+                onReadyForServerCompletion: function(paymentId, txid) {
+                    console.log("Payment completed:", paymentId, txid);
+                    alert("Success! Your job has been posted.");
+                    // Reset form
+                    document.getElementById('jobForm').reset();
+                    calculateFees();
+                },
+                onCancel: function(paymentId) {
+                    console.log("Payment cancelled:", paymentId);
+                    alert("Payment was cancelled.");
+                },
+                onError: function(error, payment) {
+                    console.error("Payment error:", error);
+                    alert("Payment failed: " + error.message);
+                }
+            });
+        } catch (err) {
+            console.error("Payment error:", err);
+            alert("Please open this app in Pi Browser to make payments.");
+        } finally {
+            payBtn.disabled = false;
+            payBtn.textContent = "Pay & Post Job";
+        }
+    }
+</script>
+
 </body>
     </html>
