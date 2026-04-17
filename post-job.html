@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post a Job | Workly</title>
-    <!-- Pi SDK must load before any other scripts -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
         :root { --pi-purple: #632d95; --pi-gold: #ffa500; }
@@ -100,14 +99,17 @@
             margin-top: 5px; 
             display: none; 
         }
-        .pi-warning {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            color: #856404;
+        .sandbox-notice {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            color: #0d47a1;
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 20px;
-            display: none;
+            font-size: 0.9rem;
+        }
+        .sandbox-notice strong {
+            color: #d32f2f;
         }
     </style>
 </head>
@@ -116,9 +118,10 @@
 <div class="container">
     <h2>Post a New Job</h2>
     
-    <!-- Warning for non-Pi Browser users -->
-    <div id="piWarning" class="pi-warning">
-        ⚠️ Please open this app in Pi Browser to make payments.
+    <!-- Sandbox testing notice -->
+    <div class="sandbox-notice">
+        <strong>⚠️ SANDBOX MODE</strong><br>
+        Payments will expire without backend approval. This is expected for testing.
     </div>
     
     <form id="jobForm" onsubmit="event.preventDefault(); payAndPost();">
@@ -163,11 +166,10 @@
 </div>
 
 <script>
-    // Global Pi variable
+    // Initialize Pi SDK
     let Pi = null;
     let isPiBrowser = false;
 
-    // Initialize Pi SDK immediately when script loads
     function initializePiSDK() {
         if (typeof window.Pi !== 'undefined') {
             Pi = window.Pi;
@@ -176,22 +178,21 @@
             try {
                 Pi.init({ 
                     version: "2.0",
-                    sandbox: true
+                    sandbox: true  // SANDBOX MODE - Payments will expire without backend
                 });
-                console.log("Pi SDK initialized successfully");
+                console.log("✅ Pi SDK initialized in sandbox mode");
                 return true;
             } catch (err) {
-                console.error("Pi SDK initialization failed:", err);
+                console.error("❌ Pi SDK initialization failed:", err);
                 return false;
             }
         } else {
-            console.warn("Pi SDK not available - not in Pi Browser");
-            document.getElementById('piWarning').style.display = 'block';
+            console.warn("⚠️ Pi SDK not available - not in Pi Browser");
             return false;
         }
     }
 
-    // Try to initialize immediately
+    // Initialize immediately
     initializePiSDK();
 
     function sanitizeInput(str) {
@@ -239,21 +240,21 @@
 
         const totalAmount = budgetValue + (budgetValue * 0.05);
         
-        // Disable button to prevent double submission
+        // Disable button
         payBtn.disabled = true;
         payBtn.textContent = "Processing...";
 
         try {
-            // First authenticate with Pi
+            // Authenticate with Pi
             const scopes = ['payments'];
             
             Pi.authenticate(scopes, function onIncompletePaymentFound(payment) {
                 console.log("Incomplete payment found:", payment);
                 alert("You have an incomplete payment. Please complete it first.");
             }).then(function(auth) {
-                console.log("Authenticated:", auth);
+                console.log("Authenticated:", auth.user.username);
                 
-                // Now create payment
+                // Create payment
                 return Pi.createPayment({
                     amount: totalAmount,
                     memo: "Workly Job Listing: " + sanitizeInput(title),
@@ -262,35 +263,37 @@
                         category: categoryInput.value,
                         description: sanitizeInput(descInput.value),
                         budget: budgetValue,
-                        fee: budgetValue * 0.05
+                        fee: budgetValue * 0.05,
+                        user: auth.user.username
                     }
                 }, {
                     onReadyForServerApproval: function(paymentId) {
-                        console.log("Payment ready for approval:", paymentId);
-                        // TODO: Send paymentId to your backend for approval
+                        console.log("⏳ Payment ready for approval:", paymentId);
+                        console.log("⚠️ SANDBOX: Payment will expire without backend approval");
+                        // In production, send paymentId to your backend here
                     },
                     onReadyForServerCompletion: function(paymentId, txid) {
-                        console.log("Payment completed:", paymentId, txid);
-                        alert("Success! Your job has been posted.");
+                        console.log("✅ Payment completed:", paymentId, txid);
+                        alert("🎉 Success! Your job has been posted.");
                         document.getElementById('jobForm').reset();
                         calculateFees();
                     },
                     onCancel: function(paymentId) {
-                        console.log("Payment cancelled:", paymentId);
+                        console.log("❌ Payment cancelled:", paymentId);
                         alert("Payment was cancelled.");
                     },
                     onError: function(error, payment) {
-                        console.error("Payment error:", error);
+                        console.error("❌ Payment error:", error);
                         alert("Payment failed: " + error.message);
                     }
                 });
             }).catch(function(error) {
-                console.error("Authentication error:", error);
-                alert("Authentication failed. Please try again.");
+                console.error("❌ Authentication error:", error);
+                alert("Authentication failed: " + error.message);
             });
             
         } catch (err) {
-            console.error("Payment error:", err);
+            console.error("❌ Payment error:", err);
             alert("Payment failed. Please ensure you're using Pi Browser.");
         } finally {
             payBtn.disabled = false;
@@ -303,4 +306,4 @@
 </script>
 
 </body>
-    </html>
+</html>
