@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Payment - Workly</title>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script>Pi.init({ version: "2.0", sandbox: false })</script>
+    <style>
+        body { font-family: Arial; padding: 20px; text-align: center; }
+        button { 
+            background: #7C3AED; 
+            color: white; 
+            padding: 15px 30px; 
+            border: none; 
+            border-radius: 10px; 
+            font-size: 18px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Workly - Test Payment</h1>
+    <p>This will process a 0.01 Pi test payment</p>
+    <button onclick="testPayment()">Process Test Payment</button>
+    <p id="status"></p>
+
+    <script>
+        function testPayment() {
+            document.getElementById('status').textContent = 'Processing...';
+            
+            Pi.authenticate(['payments'], function(payment) {
+                console.log('Incomplete payment found:', payment);
+            }).then(function(auth) {
+                console.log('Authenticated:', auth.user.username);
+                
+                return Pi.createPayment({
+                    amount: 0.01,
+                    memo: 'Workly: Test transaction for app validation',
+                    metadata: { type: 'test_validation' }
+                }, {
+                    onReadyForServerApproval: function(paymentId) {
+                        console.log('Ready for approval:', paymentId);
+                        // For test, auto-approve
+                        fetch('/api/payments/approve', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ paymentId })
+                        }).catch(() => {
+                            // If no backend, just log
+                            console.log('Approval endpoint not available - OK for test');
+                        });
+                    },
+                    onReadyForServerCompletion: function(paymentId, txid) {
+                        console.log('Complete:', paymentId, txid);
+                        document.getElementById('status').innerHTML = 
+                            '<span style="color:green">✅ Payment successful!</span><br>' +
+                            'Payment ID: ' + paymentId + '<br>' +
+                            'TxID: ' + txid;
+                    },
+                    onCancel: function(paymentId) {
+                        document.getElementById('status').textContent = 'Payment cancelled';
+                    },
+                    onError: function(error, payment) {
+                        document.getElementById('status').textContent = 'Error: ' + error;
+                    }
+                });
+            }).catch(function(error) {
+                document.getElementById('status').textContent = 'Auth failed: ' + error;
+            });
+        }
+    </script>
+</body>
+</html>
